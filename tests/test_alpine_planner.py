@@ -1,8 +1,14 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
 from alpine_planner import (
+    DAVWeatherClient,
+    KomootToursClient,
     Tour,
     WeatherForecast,
+    _load_json,
     can_group_do_tour,
     has_robust_good_weather,
     recommend_tours,
@@ -63,6 +69,46 @@ class PlannerTests(unittest.TestCase):
             [t.name for t in results],
             ["Beginner Loop", "Alpha Traverse", "Zulu Route"],
         )
+
+    def test_recommend_tours_matches_case_insensitive_area_and_sport(self):
+        forecasts = [WeatherForecast("Chamonix", "sunny", 0, 10, 15)]
+        tours = [Tour("Balcon Nord", "chamonix", "Hiking", "easy", "komoot")]
+
+        results = recommend_tours(forecasts, tours, sport="hiking", group_fitness="moderate")
+
+        self.assertEqual([t.name for t in results], ["Balcon Nord"])
+
+    def test_json_loading_flow_for_provider_clients(self):
+        weather_data = [
+            {
+                "area": "Chamonix",
+                "condition": "sunny",
+                "precipitation_mm": 0.2,
+                "wind_kmh": 12,
+                "visibility_km": 18,
+            }
+        ]
+        tours_data = [
+            {
+                "name": "Balcon Nord",
+                "area": "Chamonix",
+                "sport": "hiking",
+                "fitness_level": "easy",
+                "source": "komoot",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            weather_path = Path(tmp) / "weather.json"
+            tours_path = Path(tmp) / "tours.json"
+            weather_path.write_text(json.dumps(weather_data), encoding="utf-8")
+            tours_path.write_text(json.dumps(tours_data), encoding="utf-8")
+
+            weather_client = DAVWeatherClient(_load_json(str(weather_path)))
+            tours_client = KomootToursClient(_load_json(str(tours_path)))
+
+            self.assertEqual(weather_client.get_forecasts()[0].area, "Chamonix")
+            self.assertEqual(tours_client.get_tours()[0].name, "Balcon Nord")
 
 
 if __name__ == "__main__":

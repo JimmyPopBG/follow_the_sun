@@ -70,8 +70,8 @@ def has_robust_good_weather(forecast: WeatherForecast) -> bool:
 
 
 def can_group_do_tour(group_fitness: str, tour_fitness: str) -> bool:
-    group_rank = FITNESS_ORDER.get(group_fitness)
-    tour_rank = FITNESS_ORDER.get(tour_fitness)
+    group_rank = FITNESS_ORDER.get(group_fitness.lower())
+    tour_rank = FITNESS_ORDER.get(tour_fitness.lower())
     if not group_rank or not tour_rank:
         return False
     return group_rank >= tour_rank
@@ -83,15 +83,16 @@ def recommend_tours(
     sport: str,
     group_fitness: str,
 ) -> List[Tour]:
-    good_areas = {f.area for f in forecasts if has_robust_good_weather(f)}
+    good_areas = {f.area.strip().lower() for f in forecasts if has_robust_good_weather(f)}
+    target_sport = sport.strip().lower()
     results = [
         t
         for t in tours
-        if t.sport == sport
-        and t.area in good_areas
+        if t.sport.strip().lower() == target_sport
+        and t.area.strip().lower() in good_areas
         and can_group_do_tour(group_fitness, t.fitness_level)
     ]
-    return sorted(results, key=lambda t: (FITNESS_ORDER.get(t.fitness_level, 99), t.name))
+    return sorted(results, key=lambda t: (FITNESS_ORDER.get(t.fitness_level.lower(), 99), t.name))
 
 
 def _load_json(path: str):
