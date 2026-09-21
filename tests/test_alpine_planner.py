@@ -2,6 +2,9 @@ import unittest
 import json
 import tempfile
 from pathlib import Path
+from io import StringIO
+from contextlib import redirect_stdout
+from unittest.mock import patch
 
 from alpine_planner import (
     DAVWeatherClient,
@@ -11,6 +14,7 @@ from alpine_planner import (
     _load_json,
     can_group_do_tour,
     has_robust_good_weather,
+    main,
     recommend_tours,
 )
 
@@ -109,6 +113,52 @@ class PlannerTests(unittest.TestCase):
 
             self.assertEqual(weather_client.get_forecasts()[0].area, "Chamonix")
             self.assertEqual(tours_client.get_tours()[0].name, "Balcon Nord")
+
+    def test_main_prints_recommendation_from_json_inputs(self):
+        weather_data = [
+            {
+                "area": "Chamonix",
+                "condition": "Sunny",
+                "precipitation_mm": 0.2,
+                "wind_kmh": 12,
+                "visibility_km": 18,
+            }
+        ]
+        tours_data = [
+            {
+                "name": "Balcon Nord",
+                "area": "chamonix",
+                "sport": "Hiking",
+                "fitness_level": "easy",
+                "source": "komoot",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            weather_path = Path(tmp) / "weather.json"
+            tours_path = Path(tmp) / "tours.json"
+            weather_path.write_text(json.dumps(weather_data), encoding="utf-8")
+            tours_path.write_text(json.dumps(tours_data), encoding="utf-8")
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "alpine_planner.py",
+                    "--sport",
+                    "hiking",
+                    "--fitness",
+                    "moderate",
+                    "--weather-json",
+                    str(weather_path),
+                    "--tours-json",
+                    str(tours_path),
+                ],
+            ), redirect_stdout(stdout):
+                rc = main()
+
+            self.assertEqual(rc, 0)
+            self.assertIn("Balcon Nord | chamonix | Hiking | easy | komoot", stdout.getvalue())
 
 
 if __name__ == "__main__":

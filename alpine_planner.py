@@ -61,8 +61,9 @@ def has_robust_good_weather(forecast: WeatherForecast) -> bool:
     - enough visibility (>= 8 km)
     """
 
+    condition = forecast.condition.strip().lower()
     return (
-        forecast.condition in {"sunny", "partly_cloudy"}
+        condition in {"sunny", "partly_cloudy"}
         and forecast.precipitation_mm <= 1.0
         and forecast.wind_kmh <= 30
         and forecast.visibility_km >= 8
@@ -98,7 +99,10 @@ def recommend_tours(
 def _load_json(path: str):
     """Load a JSON array of objects matching WeatherForecast/Tour fields."""
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+        raise ValueError("Input JSON must be a list of objects.")
+    return data
 
 
 def build_parser() -> argparse.ArgumentParser:
