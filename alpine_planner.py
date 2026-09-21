@@ -122,8 +122,14 @@ def main() -> int:
     parser = build_parser()
     try:
         args = parser.parse_args()
-    except (argparse.ArgumentError, SystemExit) as exc:
-        code = exc.code if isinstance(exc, SystemExit) and isinstance(exc.code, int) else 2
+    except argparse.ArgumentError as exc:
+        parser.print_usage(sys.stderr)
+        print(f"Argument error: {exc}", file=sys.stderr)
+        return 2
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 2
+        if code != 0:
+            parser.print_usage(sys.stderr)
         return code
 
     try:

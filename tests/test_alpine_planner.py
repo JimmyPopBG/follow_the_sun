@@ -296,6 +296,14 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             self.assertIn("Input error:", stderr.getvalue())
 
+    def test_main_returns_usage_on_invalid_arguments(self):
+        stderr = StringIO()
+        with patch("sys.argv", ["alpine_planner.py", "--sport", "hiking"]), redirect_stderr(stderr):
+            rc = main()
+
+        self.assertEqual(rc, 2)
+        self.assertIn("usage:", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
