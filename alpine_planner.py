@@ -72,8 +72,8 @@ def has_robust_good_weather(forecast: WeatherForecast) -> bool:
 
 
 def can_group_do_tour(group_fitness: str, tour_fitness: str) -> bool:
-    group_rank = FITNESS_ORDER.get(group_fitness.lower())
-    tour_rank = FITNESS_ORDER.get(tour_fitness.lower())
+    group_rank = FITNESS_ORDER.get(group_fitness.strip().lower())
+    tour_rank = FITNESS_ORDER.get(tour_fitness.strip().lower())
     if not group_rank or not tour_rank:
         return False
     return group_rank >= tour_rank
@@ -97,20 +97,27 @@ def recommend_tours(
     return sorted(results, key=lambda t: (FITNESS_ORDER.get(t.fitness_level.lower(), 99), t.name))
 
 
-def _load_json(path: str):
+def _load_json(path: str, required_keys: set[str] | None = None, string_keys: set[str] | None = None):
     """Load a JSON array of objects matching WeatherForecast/Tour fields."""
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
         raise ValueError("Input JSON must be a list of objects.")
+    if required_keys:
+        for index, item in enumerate(data):
+            missing = required_keys - set(item.keys())
+            if missing:
+                raise ValueError(f"Record {index} is missing required fields: {sorted(missing)}")
+    if string_keys:
+        for index, item in enumerate(data):
+            for key in string_keys:
+                if key in item and not isinstance(item[key], str):
+                    raise TypeError(f"Record {index} field '{key}' must be a string.")
     return data
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Alpine weather + tour planning helper",
-        exit_on_error=False,
-    )
+    parser = argparse.ArgumentParser(description="Alpine weather + tour planning helper")
     parser.add_argument("--sport", choices=["hiking", "skiing", "mountaineering"], required=True)
     parser.add_argument("--fitness", choices=["easy", "moderate", "hard"], required=True)
     parser.add_argument("--weather-json", required=True, help="Path to DAV-style forecast JSON list")
@@ -122,19 +129,25 @@ def main() -> int:
     parser = build_parser()
     try:
         args = parser.parse_args()
-    except argparse.ArgumentError as exc:
-        parser.print_usage(sys.stderr)
-        print(f"Argument error: {exc}", file=sys.stderr)
-        return 2
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 2
-        if code != 0:
-            parser.print_usage(sys.stderr)
         return code
 
     try:
-        weather_client = DAVWeatherClient(_load_json(args.weather_json))
-        tours_client = KomootToursClient(_load_json(args.tours_json))
+        weather_client = DAVWeatherClient(
+            _load_json(
+                args.weather_json,
+                required_keys={"area", "condition", "precipitation_mm", "wind_kmh", "visibility_km"},
+                string_keys={"area", "condition"},
+            )
+        )
+        tours_client = KomootToursClient(
+            _load_json(
+                args.tours_json,
+                required_keys={"name", "area", "sport", "fitness_level", "source"},
+                string_keys={"name", "area", "sport", "fitness_level", "source"},
+            )
+        )
         recommendations = recommend_tours(
             forecasts=weather_client.get_forecasts(),
             tours=tours_client.get_tours(),

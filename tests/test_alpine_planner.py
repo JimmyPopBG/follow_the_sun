@@ -122,6 +122,14 @@ class PlannerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 _load_json(str(path))
 
+    def test_load_json_rejects_non_string_validated_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad-field.json"
+            path.write_text(json.dumps([{"condition": 5}]), encoding="utf-8")
+
+            with self.assertRaises(TypeError):
+                _load_json(str(path), string_keys={"condition"})
+
     def test_main_prints_recommendation_from_json_inputs(self):
         weather_data = [
             {
@@ -223,6 +231,33 @@ class PlannerTests(unittest.TestCase):
             tours_path = Path(tmp) / "tours.json"
             weather_path.write_text(json.dumps({"not": "a list"}), encoding="utf-8")
             tours_path.write_text(json.dumps([]), encoding="utf-8")
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "alpine_planner.py",
+                    "--sport",
+                    "hiking",
+                    "--fitness",
+                    "easy",
+                    "--weather-json",
+                    str(weather_path),
+                    "--tours-json",
+                    str(tours_path),
+                ],
+            ), redirect_stderr(stderr):
+                rc = main()
+
+            self.assertEqual(rc, 1)
+            self.assertIn("Input error:", stderr.getvalue())
+
+    def test_main_returns_error_for_malformed_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            weather_path = Path(tmp) / "weather.json"
+            tours_path = Path(tmp) / "tours.json"
+            weather_path.write_text("{ this is not valid json", encoding="utf-8")
+            tours_path.write_text("[]", encoding="utf-8")
 
             stderr = StringIO()
             with patch(

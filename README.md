@@ -52,6 +52,6 @@ python alpine_planner.py \
 
 ## Value constraints
 
-- `condition` should represent stable weather (recommended values: `sunny`, `partly_cloudy`)
+- `condition` must be `sunny` or `partly_cloudy` to be considered robust-good weather
 - `sport` must be one of: `hiking`, `skiing`, `mountaineering`
 - `fitness` (CLI) and `fitness_level` (tour entries) must be one of: `easy`, `moderate`, `hard`
