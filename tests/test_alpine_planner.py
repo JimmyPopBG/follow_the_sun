@@ -49,6 +49,21 @@ class PlannerTests(unittest.TestCase):
 
         self.assertEqual([t.name for t in results], ["Balcon Nord"])
 
+    def test_recommend_tours_orders_by_fitness_then_name(self):
+        forecasts = [WeatherForecast("Chamonix", "sunny", 0, 10, 15)]
+        tours = [
+            Tour("Zulu Route", "Chamonix", "hiking", "moderate", "komoot"),
+            Tour("Alpha Traverse", "Chamonix", "hiking", "moderate", "komoot"),
+            Tour("Beginner Loop", "Chamonix", "hiking", "easy", "komoot"),
+        ]
+
+        results = recommend_tours(forecasts, tours, sport="hiking", group_fitness="hard")
+
+        self.assertEqual(
+            [t.name for t in results],
+            ["Beginner Loop", "Alpha Traverse", "Zulu Route"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

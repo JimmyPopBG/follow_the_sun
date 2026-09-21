@@ -91,7 +91,7 @@ def recommend_tours(
         and t.area in good_areas
         and can_group_do_tour(group_fitness, t.fitness_level)
     ]
-    return sorted(results, key=lambda t: (FITNESS_ORDER[t.fitness_level], t.name))
+    return sorted(results, key=lambda t: (FITNESS_ORDER.get(t.fitness_level, 99), t.name))
 
 
 def _load_json(path: str):
