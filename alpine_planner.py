@@ -95,6 +95,7 @@ def recommend_tours(
 
 
 def _load_json(path: str):
+    """Load a JSON array of objects matching WeatherForecast/Tour fields."""
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
