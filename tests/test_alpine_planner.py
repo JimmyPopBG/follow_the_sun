@@ -244,6 +244,58 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             self.assertIn("Input error:", stderr.getvalue())
 
+    def test_main_returns_error_for_invalid_record_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            weather_path = Path(tmp) / "weather.json"
+            tours_path = Path(tmp) / "tours.json"
+            weather_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "area": "Chamonix",
+                            "condition": "sunny",
+                            "precipitation_mm": 0.2,
+                            "wind_kmh": 12,
+                            "visibility_km": 18,
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            tours_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "name": "Broken Tour",
+                            "area": "Chamonix",
+                            "sport": "hiking",
+                            "source": "komoot",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "alpine_planner.py",
+                    "--sport",
+                    "hiking",
+                    "--fitness",
+                    "easy",
+                    "--weather-json",
+                    str(weather_path),
+                    "--tours-json",
+                    str(tours_path),
+                ],
+            ), redirect_stderr(stderr):
+                rc = main()
+
+            self.assertEqual(rc, 1)
+            self.assertIn("Input error:", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

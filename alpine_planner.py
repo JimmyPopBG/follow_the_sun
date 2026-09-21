@@ -107,7 +107,10 @@ def _load_json(path: str):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Alpine weather + tour planning helper")
+    parser = argparse.ArgumentParser(
+        description="Alpine weather + tour planning helper",
+        exit_on_error=False,
+    )
     parser.add_argument("--sport", choices=["hiking", "skiing", "mountaineering"], required=True)
     parser.add_argument("--fitness", choices=["easy", "moderate", "hard"], required=True)
     parser.add_argument("--weather-json", required=True, help="Path to DAV-style forecast JSON list")
@@ -116,21 +119,25 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    try:
+        args = parser.parse_args()
+    except (argparse.ArgumentError, SystemExit) as exc:
+        code = exc.code if isinstance(exc, SystemExit) and isinstance(exc.code, int) else 2
+        return code
 
     try:
         weather_client = DAVWeatherClient(_load_json(args.weather_json))
         tours_client = KomootToursClient(_load_json(args.tours_json))
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        recommendations = recommend_tours(
+            forecasts=weather_client.get_forecasts(),
+            tours=tours_client.get_tours(),
+            sport=args.sport,
+            group_fitness=args.fitness,
+        )
+    except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
         print(f"Input error: {exc}", file=sys.stderr)
         return 1
-
-    recommendations = recommend_tours(
-        forecasts=weather_client.get_forecasts(),
-        tours=tours_client.get_tours(),
-        sport=args.sport,
-        group_fitness=args.fitness,
-    )
 
     if not recommendations:
         print("No robust-weather tours found for this sport/fitness combination.")
