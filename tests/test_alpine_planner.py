@@ -3,7 +3,7 @@ import json
 import tempfile
 from pathlib import Path
 from io import StringIO
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 from unittest.mock import patch
 
 from alpine_planner import (
@@ -114,6 +114,14 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(weather_client.get_forecasts()[0].area, "Chamonix")
             self.assertEqual(tours_client.get_tours()[0].name, "Balcon Nord")
 
+    def test_load_json_rejects_non_list_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.json"
+            path.write_text(json.dumps({"area": "Chamonix"}), encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                _load_json(str(path))
+
     def test_main_prints_recommendation_from_json_inputs(self):
         weather_data = [
             {
@@ -159,6 +167,82 @@ class PlannerTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             self.assertIn("Balcon Nord | chamonix | Hiking | easy | komoot", stdout.getvalue())
+
+    def test_main_prints_no_results_message(self):
+        weather_data = [
+            {
+                "area": "Davos",
+                "condition": "rain",
+                "precipitation_mm": 3.0,
+                "wind_kmh": 20,
+                "visibility_km": 6,
+            }
+        ]
+        tours_data = [
+            {
+                "name": "Parsenn",
+                "area": "Davos",
+                "sport": "skiing",
+                "fitness_level": "easy",
+                "source": "komoot",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            weather_path = Path(tmp) / "weather.json"
+            tours_path = Path(tmp) / "tours.json"
+            weather_path.write_text(json.dumps(weather_data), encoding="utf-8")
+            tours_path.write_text(json.dumps(tours_data), encoding="utf-8")
+
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "alpine_planner.py",
+                    "--sport",
+                    "skiing",
+                    "--fitness",
+                    "moderate",
+                    "--weather-json",
+                    str(weather_path),
+                    "--tours-json",
+                    str(tours_path),
+                ],
+            ), redirect_stdout(stdout):
+                rc = main()
+
+            self.assertEqual(rc, 0)
+            self.assertIn(
+                "No robust-weather tours found for this sport/fitness combination.",
+                stdout.getvalue(),
+            )
+
+    def test_main_returns_error_for_invalid_json_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            weather_path = Path(tmp) / "weather.json"
+            tours_path = Path(tmp) / "tours.json"
+            weather_path.write_text(json.dumps({"not": "a list"}), encoding="utf-8")
+            tours_path.write_text(json.dumps([]), encoding="utf-8")
+
+            stderr = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "alpine_planner.py",
+                    "--sport",
+                    "hiking",
+                    "--fitness",
+                    "easy",
+                    "--weather-json",
+                    str(weather_path),
+                    "--tours-json",
+                    str(tours_path),
+                ],
+            ), redirect_stderr(stderr):
+                rc = main()
+
+            self.assertEqual(rc, 1)
+            self.assertIn("Input error:", stderr.getvalue())
 
 
 if __name__ == "__main__":

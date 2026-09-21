@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from typing import Iterable, List
 
@@ -117,8 +118,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
 
-    weather_client = DAVWeatherClient(_load_json(args.weather_json))
-    tours_client = KomootToursClient(_load_json(args.tours_json))
+    try:
+        weather_client = DAVWeatherClient(_load_json(args.weather_json))
+        tours_client = KomootToursClient(_load_json(args.tours_json))
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Input error: {exc}", file=sys.stderr)
+        return 1
 
     recommendations = recommend_tours(
         forecasts=weather_client.get_forecasts(),
